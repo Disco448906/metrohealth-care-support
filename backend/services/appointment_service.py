@@ -337,19 +337,24 @@ DOCTOR_SCHEDULES_MASTER = [
 
 
 def ensure_appointment_master_seeded():
-    """Initializes departments, doctors, and doctor_schedules collections if empty."""
+    """Add any missing department, doctor, and schedule master records."""
     db = get_db()
-    if db["departments"].count_documents({}) == 0:
-        db["departments"].insert_many(DEPARTMENTS_MASTER)
-        print("[AppointmentService] Seeded departments collection.")
-    
-    if db["doctors"].count_documents({}) == 0:
-        db["doctors"].insert_many(DOCTORS_MASTER)
-        print("[AppointmentService] Seeded doctors collection.")
-
-    if db["doctor_schedules"].count_documents({}) == 0:
-        db["doctor_schedules"].insert_many(DOCTOR_SCHEDULES_MASTER)
-        print("[AppointmentService] Seeded doctor_schedules collection.")
+    for collection_name, records, key in (
+        ("departments", DEPARTMENTS_MASTER, "department_id"),
+        ("doctors", DOCTORS_MASTER, "doctor_id"),
+        ("doctor_schedules", DOCTOR_SCHEDULES_MASTER, "doctor_id"),
+    ):
+        collection = db[collection_name]
+        inserted = 0
+        for record in records:
+            result = collection.update_one(
+                {key: record[key]},
+                {"$setOnInsert": record},
+                upsert=True,
+            )
+            inserted += int(result.upserted_id is not None)
+        if inserted:
+            print(f"[AppointmentService] Added {inserted} missing {collection_name} master records.")
 
 
 # -----------------------------------------------------------------------------
@@ -433,7 +438,11 @@ def get_doctors(department_id: Optional[str] = None, specialization: Optional[st
     elif specialization:
         query["specialization"] = {"$regex": f"^{re.escape(specialization)}$", "$options": "i"}
 
-    docs = list(db["doctors"].find(query, {"_id": 0}))
+    docs = [
+        doc
+        for doc in db["doctors"].find(query, {"_id": 0})
+        if isinstance(doc.get("doctor_id"), str) and doc["doctor_id"]
+    ]
     
     # Attach schedule overview for each doctor
     for doc in docs:

@@ -18,17 +18,22 @@ def ensure_doctor_accounts():
     password_hash = hash_password("Password123!")
     created = 0
     for doctor in db["doctors"].find({}, {"_id": 0}):
-        doctor_slug = doctor["doctor_id"].removeprefix("doc_")
+        doctor_id = doctor.get("doctor_id")
+        doctor_name = doctor.get("name")
+        if not isinstance(doctor_id, str) or not doctor_id or not doctor_name:
+            continue
+
+        doctor_slug = doctor_id.removeprefix("doc_")
         email = f"doctor.{doctor_slug}@metrohealth.org"
         if db["users"].find_one({"email": email}):
             continue
         db["users"].insert_one({
             "id": f"doctor_user_{doctor_slug}",
-            "name": doctor["name"],
+            "name": doctor_name,
             "email": email,
             "password": password_hash,
             "role": "doctor",
-            "doctor_id": doctor["doctor_id"],
+            "doctor_id": doctor_id,
             "phone": "",
             "created_at": "2026-01-10T08:00:00",
         })
