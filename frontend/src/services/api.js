@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const apiBaseUrl = (configuredApiUrl || 'https://metrohealth-care-support.onrender.com').replace(/\/+$/, '');
+
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
